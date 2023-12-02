@@ -19,7 +19,7 @@ dotenv.config();
 const app = express();
 app.use(bodyParser.json({ limit: '50mb' }));
 // app.use(cors({ origin: true, credentials: true }));
-app.use(cors({ origin: 'http://localhost:3000', credentials: true, exposedHeaders: ['Set-Cookie', 'Date', 'ETag'] }));
+app.use(cors({ origin: 'http://localhost:5173', credentials: true, exposedHeaders: ['Set-Cookie', 'Date', 'ETag'] }));
 app.use(morgan('common'));
 app.use(cookiparser());
 
@@ -44,10 +44,11 @@ app.use(function (req, res, next) {
 
 async function connect() {
     try {
-        await mongoose.connect('mongodb://127.0.0.1/Oragnive');
-        console.log('connect successfully!!!');
+        await mongoose.connect(process.env.MONGODB_URL);
+        console.log('connect DB successfully!!!');
     } catch (error) {
-        console.log('connect failure!!!');
+        console.log('connect DB failure!!!');
+        console.log(error);
     }
 }
 connect();
