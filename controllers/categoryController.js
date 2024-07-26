@@ -1,15 +1,16 @@
-const { json } = require('body-parser');
 const Category = require('../model/CategoryModel');
+const { sendSuccessResponse, sendErrorResponse, sendNotFoundResponse } = require('../utils/respone');
 
 const categoryController = {
     // ADD CATEGORY
+
     addCategory: async (req, res) => {
         try {
             const newCategory = new Category(req.body);
             const saveCategory = await newCategory.save();
-            res.status(200).json(saveCategory);
+            sendSuccessResponse(res, saveCategory, 'Category added successfully');
         } catch (err) {
-            res.status(500).json(err);
+            sendErrorResponse(res, 'Error adding category');
         }
     },
 
@@ -17,9 +18,9 @@ const categoryController = {
     getAllCategory: async (req, res) => {
         try {
             const categories = await Category.find();
-            res.status(200).json(categories);
+            sendSuccessResponse(res, categories, 'Categories retrieved successfully');
         } catch (error) {
-            res.status(500).json(err);
+            sendErrorResponse(res, 'Error retrieving categories');
         }
     },
 
@@ -27,30 +28,42 @@ const categoryController = {
     getAnCategory: async (req, res) => {
         try {
             const category = await Category.findOne({ slug: req.params.slug }).populate('id_product');
-            res.status(200).json(category);
+            if (!category) {
+                sendNotFoundResponse(res, 'Category not found');
+                return;
+            }
+            sendSuccessResponse(res, category, 'Category retrieved successfully');
         } catch (error) {
-            res.status(500), json(error);
+            sendErrorResponse(res, 'Error retrieving category');
         }
     },
 
     // UPDATE CATEGORY
     updateCategory: async (req, res) => {
         try {
-            const updatecategory = await Category.findOne({ slug: req.params.slug });
-            await updatecategory.updateOne({ $set: req.body });
-            res.status(200).json('update successfully');
+            const updateCategory = await Category.findOne({ slug: req.params.slug });
+            if (!updateCategory) {
+                sendNotFoundResponse(res, 'Category not found');
+                return;
+            }
+            await updateCategory.updateOne({ $set: req.body });
+            sendSuccessResponse(res, null, 'Category updated successfully');
         } catch (error) {
-            res.status(500).json(error);
+            sendErrorResponse(res, 'Error updating category');
         }
     },
 
     // DELETE CATEGORY
-    deleteProduct: async (req, res) => {
+    deleteCategory: async (req, res) => {
         try {
-            await Category.findOneAndDelete({ slug: req.params.slug });
-            res.status(200).json('delete successfully');
+            const deleteCategory = await Category.findOneAndDelete({ slug: req.params.slug });
+            if (!deleteCategory) {
+                sendNotFoundResponse(res, 'Category not found');
+                return;
+            }
+            sendSuccessResponse(res, null, 'Category deleted successfully');
         } catch (error) {
-            res.status(500).json(error);
+            sendErrorResponse(res, 'Error deleting category');
         }
     },
 };

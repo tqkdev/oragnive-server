@@ -1,16 +1,14 @@
-const { json } = require('body-parser');
 const Product = require('../model/ProductModel');
-// const unorm = require('unorm');
+const { sendSuccessResponse, sendErrorResponse } = require('../utils/respone');
 
 const searchproductController = {
     // SEARCH PRODUCT
     searchProduct: async (req, res) => {
         // http://localhost:3001/api/search/keyword?q=a&page=1&limit=3
         try {
-            // const q = convertToUnaccented(req.params.q); // Chuyển đổi và chuyển thành chữ thường
             const q = req.query.q;
             const page = parseInt(req.query.page) || 1; // Trang hiện tại (mặc định là 1)
-            const limit = parseInt(req.query.limit) || 2; // Số sản phẩm trên mỗi trang (mặc định là 10)
+            const limit = parseInt(req.query.limit) || 10; // Số sản phẩm trên mỗi trang (mặc định là 10)
 
             const skip = (page - 1) * limit; // Số bản ghi cần bỏ qua để lấy bản ghi tiếp theo
 
@@ -26,9 +24,27 @@ const searchproductController = {
                 .limit(limit)
                 .exec();
 
-            res.status(200).json(searchproducts);
+            // Tính tổng số lượng sản phẩm khớp với từ khóa tìm kiếm
+            const totalProducts = await Product.countDocuments({
+                $or: [
+                    { name: { $regex: q, $options: 'i' } },
+                    { category: { $regex: q, $options: 'i' } },
+                    { description: { $regex: q, $options: 'i' } },
+                ],
+            });
+
+            const totalPages = Math.ceil(totalProducts / limit);
+
+            const response = {
+                currentPage: page,
+                totalPages: totalPages,
+                totalProducts: totalProducts,
+                products: searchproducts,
+            };
+
+            sendSuccessResponse(res, response, 'Products retrieved successfully');
         } catch (error) {
-            res.status(500).json(error);
+            sendErrorResponse(res, 'Error retrieving products');
         }
     },
 };

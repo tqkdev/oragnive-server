@@ -1,71 +1,77 @@
-const { json } = require('body-parser');
-// const Product = require('../model/ProductModel');
-// const User = require('../model/UserModel');
 const Order = require('../model/OrdersModel');
-
-// const unorm = require('unorm');
+const { sendSuccessResponse, sendErrorResponse, sendNotFoundResponse } = require('../utils/respone');
 
 const OrderController = {
-    // // ADD PRODUCT
-    // addOrder: async (req, res) => {
-    //     try {
-    //         const newOder = new Order(req.body);
-    //         const saveOrder = await newOder.save();
-    //         res.status(200).json(saveOrder);
-    //     } catch (err) {
-    //         res.status(500).json(err);
-    //     }
-    // },
-
     // GET AN ORDER
     getOrder: async (req, res) => {
         try {
             const order = await Order.findOne({ user_id: req.params.slug });
-            // console.log(order.order);
-            res.status(200).json(order);
+            if (!order) {
+                return sendSuccessResponse(res, order, 'Not available Order');
+            }
+            sendSuccessResponse(res, order, 'Order retrieved successfully');
         } catch (error) {
-            res.status(500).json(error);
+            sendErrorResponse(res, 'Error retrieving order');
         }
     },
 
-    // UPDATE PRODUCT
+    // UPDATE ORDER
     updateOrder: async (req, res) => {
         try {
-            const updateorder = await Order.findOne({ user_id: req.params.slug });
-            await updateorder.order.push(req.body);
-            await updateorder.save();
-            res.status(200).json(updateorder);
+            let order = await Order.findOne({ user_id: req.params.slug });
+            if (!order) {
+                // Nếu đơn hàng không tồn tại, tạo đơn hàng mới
+                order = new Order({
+                    user_id: req.params.slug,
+                    order: [req.body],
+                });
+            } else {
+                // Nếu đơn hàng đã tồn tại, kiểm tra xem sản phẩm đã có trong đơn hàng chưa
+                const productExists = order.order.some((orderItem) => orderItem.product_id === req.body.product_id);
+                if (productExists) {
+                    return sendErrorResponse(res, 'Product already exists in the order', 400);
+                }
+
+                // Thêm sản phẩm vào đơn hàng nếu chưa tồn tại
+                order.order.push(req.body);
+            }
+            await order.save();
+            sendSuccessResponse(res, order, 'Order updated successfully');
         } catch (error) {
-            res.status(500).json(error);
+            sendErrorResponse(res, error.message);
         }
     },
-
-    // UPDATE qualyti
+    // UPDATE QUALITY
     updatequality: async (req, res) => {
         try {
             const updateOrder = await Order.findOne({ user_id: req.params.slug });
+            if (!updateOrder) {
+                return sendNotFoundResponse(res, 'Order not found');
+            }
             const quality = req.body.quality;
             // Tìm sản phẩm cần cập nhật trong đơn hàng
             const productToUpdate = updateOrder.order.find((orderItem) => orderItem.product_id === req.body.product_id);
             if (!productToUpdate) {
-                return res.status(404).json({ message: 'Không tìm thấy sản phẩm trong đơn hàng' });
+                return sendNotFoundResponse(res, 'Product not found in order');
             }
 
-            // Cập nhật trường quality thành 5
+            // Cập nhật trường quality
             productToUpdate.quality = quality;
 
             await updateOrder.save();
-
-            res.status(200).json(updateOrder);
+            sendSuccessResponse(res, updateOrder, 'Order quality updated successfully');
         } catch (error) {
-            res.status(500).json(error);
+            sendErrorResponse(res, 'Error updating order quality');
         }
     },
 
-    // DELETE PRODUCT
+    // DELETE ORDER
     deleteOrder: async (req, res) => {
         try {
             const deleteOrder = await Order.findOne({ user_id: req.params.slug });
+            if (!deleteOrder) {
+                return sendNotFoundResponse(res, 'Order not found');
+            }
 
             // Tìm sản phẩm cần xóa trong đơn hàng
             const productToRemoveIndex = deleteOrder.order.findIndex(
@@ -73,16 +79,16 @@ const OrderController = {
             );
 
             if (productToRemoveIndex === -1) {
-                return res.status(404).json({ message: 'Không tìm thấy sản phẩm trong đơn hàng' });
+                return sendNotFoundResponse(res, 'Product not found in order');
             }
 
             // Xóa sản phẩm ra khỏi đơn hàng
             deleteOrder.order.splice(productToRemoveIndex, 1);
 
             await deleteOrder.save();
-            res.status(200).json(deleteOrder);
+            sendSuccessResponse(res, deleteOrder, 'Order deleted successfully');
         } catch (error) {
-            res.status(500).json(error);
+            sendErrorResponse(res, 'Error deleting order');
         }
     },
 };

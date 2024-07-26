@@ -1,41 +1,42 @@
 const jwt = require('jsonwebtoken');
+const { sendUnauthorizedResponse, sendErrorResponse } = require('../utils/respone');
 
 const middlewareAdminController = {
-    //verifyToken
+    // verifyToken
     verifyToken: (req, res, next) => {
         const token = req.headers.token;
         if (token) {
-            const accesstoken = token.split(' ')[1];
-            jwt.verify(accesstoken, process.env.JWT_ACCESS_KEY, (err, admin) => {
+            const accessToken = token.split(' ')[1];
+            jwt.verify(accessToken, process.env.JWT_ACCESS_KEY, (err, admin) => {
                 if (err) {
-                    res.status(403).json('Token is not valid');
+                    sendErrorResponse(res, 'Token is not valid', 403);
                 } else {
                     req.admin = admin;
                     next();
                 }
             });
         } else {
-            res.status(401).json("You're not authenticated");
+            sendUnauthorizedResponse(res, "You're not authenticated");
         }
     },
 };
 
 const middlewareUserController = {
-    //verifyToken
+    // verifyToken
     verifyToken: (req, res, next) => {
         const token = req.headers.token;
         if (token) {
-            const accesstoken = token.split(' ')[1];
-            jwt.verify(accesstoken, process.env.JWT_ACCESS_KEY, (err, user) => {
+            const accessToken = token.split(' ')[1];
+            jwt.verify(accessToken, process.env.JWT_ACCESS_KEY, (err, user) => {
                 if (err) {
-                    res.status(403).json('Token is not valid');
+                    sendErrorResponse(res, 'Token is not valid', 403);
                 } else {
                     req.user = user;
                     next();
                 }
             });
         } else {
-            res.status(401).json("You're not authenticated");
+            sendUnauthorizedResponse(res, "You're not authenticated");
         }
     },
 };

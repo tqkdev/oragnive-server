@@ -1,121 +1,155 @@
-const { json } = require('body-parser');
 const Product = require('../model/ProductModel');
 const Category = require('../model/CategoryModel');
-// const unorm = require('unorm');
+const { sendSuccessResponse, sendNotFoundResponse, sendErrorResponse } = require('../utils/respone');
 
 const productController = {
     // ADD PRODUCT
     addProduct: async (req, res) => {
         try {
             const newProduct = new Product(req.body);
-            const saveProduct = await newProduct.save();
+            const savedProduct = await newProduct.save();
+
             if (req.body.category) {
                 const category = await Category.findOne({ name: req.body.category });
-                await category.updateOne({ $push: { id_product: saveProduct._id } });
+                if (category) {
+                    await category.updateOne({ $push: { id_product: savedProduct._id } });
+                }
             }
 
-            res.status(200).json(saveProduct);
+            sendSuccessResponse(res, savedProduct, 'Product added successfully');
         } catch (err) {
-            res.status(500).json(err);
+            sendErrorResponse(res, 'Failed to add product');
         }
     },
 
     // GET PRODUCT
     getProduct: async (req, res) => {
-        // Phân Trang
-        //http://localhost:3001/api/product?page=1&limit=2
-        // Sort
-        // http://localhost:3001/api/product?sortBy=price&sortOrder=desc
+        try {
+            const page = parseInt(req.query.page) || 1; // Trang hiện tại (mặc định là 1)
+            const limit = parseInt(req.query.limit) || 10; // Số sản phẩm trên mỗi trang (mặc định là 10)
+            const sortBy = req.query.sortBy || 'name'; // Theo mặc định, sẽ sắp xếp theo tên
+            const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1; // Theo mặc định, sẽ sắp xếp tăng dần (1)
 
-        const page = parseInt(req.query.page);
-        const sortBy = req.query.sortBy || 'name'; // Theo mặc định, sẽ sắp xếp theo tên
+            const skip = (page - 1) * limit; // Số bản ghi cần bỏ qua để lấy bản ghi tiếp theo
+            const sortOptions = {};
+            sortOptions[sortBy] = sortOrder;
 
-        if (page && sortBy) {
-            // http://localhost:3001/api/product?sortBy=price&sortOrder=desc&page=1&limit=3
+            // Tính tổng số sản phẩm
+            const totalProducts = await Product.countDocuments();
+            const totalPages = Math.ceil(totalProducts / limit);
 
-            try {
-                const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1; // Theo mặc định, sẽ sắp xếp tăng dần (1)
-                const limit = parseInt(req.query.limit) || 10; // Số sản phẩm trên mỗi trang (mặc định là 10)
+            // Lấy các sản phẩm theo trang
+            const products = await Product.find().sort(sortOptions).skip(skip).limit(limit).exec();
 
-                const skip = (page - 1) * limit; // Số bản ghi cần bỏ qua để lấy bản ghi tiếp theo
+            // Trả về dữ liệu phân trang và thông tin tổng số trang
+            sendSuccessResponse(
+                res,
+                {
+                    products,
+                    pagination: {
+                        currentPage: page,
+                        totalPages,
+                        totalProducts,
+                    },
+                },
+                'Products retrieved successfully',
+            );
+        } catch (error) {
+            sendErrorResponse(res, 'Error retrieving products');
+        }
+    },
 
-                const sortOptions = {};
-                sortOptions[sortBy] = sortOrder;
+    getProductsCategory: async (req, res) => {
+        try {
+            const category = req.params.slug;
+            const page = parseInt(req.query.page) || 1; // Trang hiện tại (mặc định là 1)
+            const limit = parseInt(req.query.limit) || 10; // Số sản phẩm trên mỗi trang (mặc định là 10)
+            const sortBy = req.query.sortBy || 'name'; // Theo mặc định, sẽ sắp xếp theo tên
+            const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1; // Theo mặc định, sẽ sắp xếp tăng dần (1)
 
-                const products = await Product.find().sort(sortOptions).skip(skip).limit(limit).exec();
+            const skip = (page - 1) * limit; // Số bản ghi cần bỏ qua để lấy bản ghi tiếp theo
+            const sortOptions = {};
+            sortOptions[sortBy] = sortOrder;
 
-                res.status(200).json(products);
-            } catch (error) {
-                res.status(500).json({ message: 'Lỗi sort product' });
+            // Tìm category theo name hoặc slug
+            const categoryData = await Category.findOne({ slug: category });
+
+            if (!categoryData) {
+                return sendErrorResponse(res, 'Category not found');
             }
-        } else if (page) {
-            try {
-                const limit = parseInt(req.query.limit) || 2; // Số sản phẩm trên mỗi trang
 
-                const skip = (page - 1) * limit; // Số bản ghi cần bỏ qua để lấy bản ghi tiếp theo
+            // Tìm sản phẩm theo category
+            const totalProducts = await Product.countDocuments({ category: categoryData.name });
+            const totalPages = Math.ceil(totalProducts / limit);
 
-                const products = await Product.find().skip(skip).limit(limit).exec();
+            const products = await Product.find({ category: categoryData.name })
+                .sort(sortOptions)
+                .skip(skip)
+                .limit(limit)
+                .exec();
 
-                res.status(200).json(products);
-            } catch (error) {
-                res.status(500).json({ message: 'Lỗi phân trang' });
-            }
-        } else if (sortBy) {
-            try {
-                // const sortBy = req.query.sortBy || 'name'; // Theo mặc định, sẽ sắp xếp theo tên
-
-                const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1; // Theo mặc định, sẽ sắp xếp tăng dần (1)
-
-                const sortOptions = {};
-                sortOptions[sortBy] = sortOrder;
-
-                const products = await Product.find().sort(sortOptions);
-
-                res.status(200).json(products);
-            } catch (error) {
-                res.status(500).json({ message: 'Lỗi sort product' });
-            }
-        } else {
-            // GET ALL PRUDUCT
-            try {
-                const products = await Product.find();
-                res.status(200).json(products);
-            } catch (error) {
-                res.status(500).json(err);
-            }
+            // Trả về dữ liệu phân trang và thông tin tổng số trang
+            sendSuccessResponse(
+                res,
+                {
+                    products,
+                    pagination: {
+                        currentPage: page,
+                        totalPages,
+                        totalProducts,
+                    },
+                },
+                'Products retrieved successfully',
+            );
+        } catch (error) {
+            sendErrorResponse(res, 'Error retrieving products by category');
         }
     },
 
     // GET AN PRODUCT
     getAnProduct: async (req, res) => {
         try {
-            const product = await Product.findOne({ slug: req.params.slug });
-            res.status(200).json(product);
+            const product = await Product.findOne({ _id: req.params.slug });
+            if (product) {
+                sendSuccessResponse(res, product, 'Product retrieved successfully');
+            } else {
+                sendNotFoundResponse(res, 'Product not found');
+            }
         } catch (error) {
-            res.status(500), json(error);
+            sendErrorResponse(res, 'Failed to retrieve product');
         }
     },
 
     // UPDATE PRODUCT
     updateProduct: async (req, res) => {
         try {
-            const updateproduct = await Product.findOne({ slug: req.params.slug });
-            await updateproduct.updateOne({ $set: req.body });
-            res.status(200).json('update successfully');
+            const updatedProduct = await Product.findOneAndUpdate({ _id: req.params.slug }, req.body, { new: true });
+            if (updatedProduct) {
+                sendSuccessResponse(res, updatedProduct, 'Product updated successfully');
+            } else {
+                sendNotFoundResponse(res, 'Product not found');
+            }
         } catch (error) {
-            res.status(500).json(error);
+            sendErrorResponse(res, 'Failed to update product');
         }
     },
 
     // DELETE PRODUCT
     deleteProduct: async (req, res) => {
+        console.log('delete', req.params.slug);
         try {
-            const deleteproduct = await Product.findOne({ _id: req.params.slug });
-            await Category.updateMany({ id_product: deleteproduct._id }, { $pull: { id_product: deleteproduct._id } });
-            await Product.findOneAndDelete({ _id: req.params.slug });
-            res.status(200).json('delete successfully');
+            const deletedProduct = await Product.findOneAndDelete({ _id: req.params.slug });
+            if (deletedProduct) {
+                await Category.updateMany(
+                    { id_product: deletedProduct._id },
+                    { $pull: { id_product: deletedProduct._id } },
+                );
+                sendSuccessResponse(res, null, 'Product deleted successfully');
+            } else {
+                sendNotFoundResponse(res, 'Product not found');
+            }
         } catch (error) {
-            res.status(500).json(error);
+            sendErrorResponse(res, 'Failed to delete product');
         }
     },
 };

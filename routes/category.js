@@ -15,6 +15,6 @@ router.get('/:slug', categoryController.getAnCategory);
 router.put('/:slug', categoryController.updateCategory);
 
 //DELETE CATEGORY
-router.delete('/:slug', categoryController.deleteProduct);
+router.delete('/:slug', categoryController.deleteCategory);
 
 module.exports = router;

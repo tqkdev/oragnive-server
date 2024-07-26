@@ -9,6 +9,9 @@ router.post('/', middlewareAdminController.verifyToken, productController.addPro
 // GET ALL PRODUCT
 router.get('/', productController.getProduct);
 
+// GET ALL PRODUCT OF CATEGORY
+router.get('/category/:slug', productController.getProductsCategory);
+
 // GET A PRODUCT
 router.get('/:slug', productController.getAnProduct);
 

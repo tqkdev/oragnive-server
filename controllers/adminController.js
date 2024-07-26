@@ -1,30 +1,45 @@
-const { json } = require('body-parser');
 const Admin = require('../model/AdminModel');
 const RefreshTokenAdminModel = require('../model/refreshTokenAdminModel');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const {
+    sendSuccessResponse,
+    sendErrorResponse,
+    sendNotFoundResponse,
+    sendValidationErrorResponse,
+    sendUnauthorizedResponse,
+} = require('../utils/respone');
 
 const adminController = {
     // REGISTER
     adminRegister: async (req, res) => {
         try {
-            const salt = await bcrypt.genSalt(10);
-            const hashed = await bcrypt.hash(req.body.password, salt);
+            const { username, email, password } = req.body;
 
-            // create admin
-            const newAdmin = await new Admin({
-                username: req.body.username,
-                email: req.body.email,
+            // Kiểm tra xem email đã tồn tại hay chưa
+            const existingAdmin = await Admin.findOne({ email: email });
+            if (existingAdmin) {
+                return sendValidationErrorResponse(res, [], 'Email already exists');
+            }
+
+            const salt = await bcrypt.genSalt(10);
+            const hashed = await bcrypt.hash(password, salt);
+
+            // Tạo quản trị viên mới
+            const newAdmin = new Admin({
+                username: username,
+                email: email,
                 password: hashed,
             });
 
-            //Save admin
+            // Lưu quản trị viên
             const admin = await newAdmin.save();
-            res.status(200).json(admin);
+            sendSuccessResponse(res, admin, 'Admin registered successfully');
         } catch (err) {
-            res.status(500).json(err);
+            sendErrorResponse(res, 'Error registering admin');
         }
     },
+
     // GENERATE ACCESS TOKEN
     generateAccessToken: (admin) => {
         return jwt.sign(
@@ -36,6 +51,7 @@ const adminController = {
         );
     },
 
+    // GENERATE REFRESH TOKEN
     generateRefreshToken: (admin) => {
         return jwt.sign(
             {
@@ -46,25 +62,25 @@ const adminController = {
         );
     },
 
-    //LOGIN
+    // LOGIN
     adminLogin: async (req, res) => {
         try {
-            const admin = await Admin.findOne({ username: req.body.username });
+            const admin = await Admin.findOne({ email: req.body.email });
             if (!admin) {
-                res.status(404).json('Incorrect username');
+                return sendNotFoundResponse(res, 'Incorrect email');
             }
             const validPassword = await bcrypt.compare(req.body.password, admin.password);
             if (!validPassword) {
-                res.status(404).json('Incorrect password');
+                return sendValidationErrorResponse(res, [], 'Incorrect password');
             }
             if (admin && validPassword) {
-                //Generate access token
+                // Generate access token
                 const accessToken = adminController.generateAccessToken(admin);
-                //Generate refresh token
+                // Generate refresh token
                 const refreshToken = adminController.generateRefreshToken(admin);
 
                 // Lưu refresh token vào cơ sở dữ liệu
-                const refreshTokenDocument = await new RefreshTokenAdminModel({
+                const refreshTokenDocument = new RefreshTokenAdminModel({
                     adminId: admin._id,
                     refreshToken: refreshToken,
                 });
@@ -77,27 +93,27 @@ const adminController = {
                     sameSite: 'strict',
                 });
                 const { password, ...others } = admin._doc;
-                return res.status(200).json({ ...others, accessToken });
+                return sendSuccessResponse(res, { ...others, accessToken }, 'Login successful');
             }
         } catch (err) {
-            res.status(500).json(err);
+            sendErrorResponse(res, 'Error logging in');
         }
     },
 
     requestRefreshToken: async (req, res) => {
-        //Take refresh token from admin
-
+        const adminIdslug = req.body.adminid;
+        // Take refresh token from admin
         const refreshToken = req.cookies.refreshToken;
-        //Send error if token is not valid
-        if (!refreshToken) return res.status(401).json('dayy');
+        // Send error if token is not valid
+        if (!refreshToken) return sendUnauthorizedResponse(res, 'No refresh token provided');
         const isRefreshTokenValid = await RefreshTokenAdminModel.exists({ refreshToken: refreshToken });
         if (!isRefreshTokenValid) {
-            return res.status(401).json('refreshToken is invalid');
+            return sendUnauthorizedResponse(res, 'Refresh token is invalid');
         }
 
         jwt.verify(refreshToken, process.env.JWT_REFRESH_KEY, (err, admin) => {
             if (err) {
-                console.log(err);
+                return sendErrorResponse(res, 'Invalid refresh token');
             }
 
             // Hàm xóa refreshToken ở cơ sở dữ liệu
@@ -110,14 +126,14 @@ const adminController = {
             }
             deleteDocumentByRefreshToken(refreshToken);
 
-            //create new access token, refresh token and send to admin
+            // Create new access token, refresh token and send to admin
             const newAccessToken = adminController.generateAccessToken(admin);
             const newRefreshToken = adminController.generateRefreshToken(admin);
 
             // Hàm lưu refreshToken vào cơ sở dữ liệu
             async function saveRefreshTokenToDatabase(id, newRefreshToken) {
                 try {
-                    const refreshTokenDocument = await new RefreshTokenAdminModel({
+                    const refreshTokenDocument = new RefreshTokenAdminModel({
                         adminId: id,
                         refreshToken: newRefreshToken,
                     });
@@ -126,9 +142,7 @@ const adminController = {
                     console.log(error);
                 }
             }
-
-            const idAdmin = admin.id.toString();
-            saveRefreshTokenToDatabase(idAdmin, newRefreshToken);
+            saveRefreshTokenToDatabase(adminIdslug, newRefreshToken);
 
             res.cookie('refreshToken', newRefreshToken, {
                 httpOnly: true,
@@ -136,10 +150,11 @@ const adminController = {
                 path: '/',
                 sameSite: 'strict',
             });
-            res.status(200).json({
-                accessToken: newAccessToken,
-                refreshToken: newRefreshToken,
-            });
+            sendSuccessResponse(
+                res,
+                { accessToken: newAccessToken, refreshToken: newRefreshToken },
+                'Token refreshed successfully',
+            );
         });
     },
 
@@ -150,9 +165,9 @@ const adminController = {
             // Xóa mã thông báo làm mới khỏi cơ sở dữ liệu và xóa cookie
             await RefreshTokenAdminModel.deleteOne({ refreshToken: refreshToken });
             res.clearCookie('refreshToken');
-            res.status(200).json('Logout successful');
+            sendSuccessResponse(res, null, 'Logout successful');
         } catch (error) {
-            res.status(500).json(error);
+            sendErrorResponse(res, 'Error logging out');
         }
     },
 };

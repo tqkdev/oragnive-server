@@ -1,34 +1,50 @@
-const { json } = require('body-parser');
 const User = require('../model/UserModel');
 const Order = require('../model/OrdersModel');
 const RefreshTokenUserModel = require('../model/refreshTokenUserModel');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const {
+    sendSuccessResponse,
+    sendErrorResponse,
+    sendNotFoundResponse,
+    sendValidationErrorResponse,
+    sendUnauthorizedResponse,
+} = require('../utils/respone');
 
 const userController = {
     // REGISTER
     userRegister: async (req, res) => {
         try {
-            const salt = await bcrypt.genSalt(10);
-            const hashed = await bcrypt.hash(req.body.password, salt);
+            const { username, email, password } = req.body;
 
-            // create user
-            const newUser = await new User({
-                username: req.body.username,
-                email: req.body.email,
+            // Kiểm tra xem email đã tồn tại hay chưa
+            const existingUser = await User.findOne({ email: email });
+            if (existingUser) {
+                return sendValidationErrorResponse(res, [], 'Email already exists');
+            }
+
+            const salt = await bcrypt.genSalt(10);
+            const hashed = await bcrypt.hash(password, salt);
+
+            // Tạo người dùng mới
+            const newUser = new User({
+                username: username,
+                email: email,
                 password: hashed,
             });
 
-            //Save user
+            // Lưu người dùng
             const user = await newUser.save();
-            // create order
-            const newOder = new Order({ user_id: user._id });
-            await newOder.save();
-            res.status(200).json(user);
+            // Tạo đơn hàng mới
+            const newOrder = new Order({ user_id: user._id });
+            await newOrder.save();
+
+            sendSuccessResponse(res, user, 'User registered successfully');
         } catch (err) {
-            res.status(500).json(err);
+            sendErrorResponse(res, 'Error registering user');
         }
     },
+
     // GENERATE ACCESS TOKEN
     generateAccessToken: (user) => {
         return jwt.sign(
@@ -37,7 +53,7 @@ const userController = {
             },
             process.env.JWT_ACCESS_KEY,
             {
-                expiresIn: '30000s',
+                expiresIn: '15s',
             },
         );
     },
@@ -55,25 +71,25 @@ const userController = {
         );
     },
 
-    //LOGIN
+    // LOGIN
     userLogin: async (req, res) => {
         try {
-            const user = await User.findOne({ username: req.body.username });
+            const user = await User.findOne({ email: req.body.email });
             if (!user) {
-                res.status(404).json('Incorrect username');
+                return sendNotFoundResponse(res, 'Incorrect email');
             }
             const validPassword = await bcrypt.compare(req.body.password, user.password);
             if (!validPassword) {
-                res.status(404).json('Incorrect password');
+                return sendValidationErrorResponse(res, [], 'Incorrect password');
             }
             if (user && validPassword) {
-                //Generate access token
+                // Generate access token
                 const accessToken = userController.generateAccessToken(user);
-                //Generate refresh token
+                // Generate refresh token
                 const refreshToken = userController.generateRefreshToken(user);
 
                 // Lưu refresh token vào cơ sở dữ liệu
-                const refreshTokenDocument = await new RefreshTokenUserModel({
+                const refreshTokenDocument = new RefreshTokenUserModel({
                     userId: user._id,
                     refreshToken: refreshToken,
                 });
@@ -86,27 +102,28 @@ const userController = {
                     sameSite: 'strict',
                 });
                 const { password, ...others } = user._doc;
-                return res.status(200).json({ ...others, accessToken });
+                return sendSuccessResponse(res, { ...others, accessToken }, 'Login successful');
             }
         } catch (err) {
-            res.status(500).json(err);
+            sendErrorResponse(res, 'Error logging in');
         }
     },
 
     requestRefreshToken: async (req, res) => {
+        const userIdslug = req.body.userid;
         //Take refresh token from user
-
         const refreshToken = req.cookies.refreshToken;
         //Send error if token is not valid
-        if (!refreshToken) return res.status(401).json('dayy');
+        if (!refreshToken) return sendUnauthorizedResponse(res, 'No refresh token provided');
+
         const isRefreshTokenValid = await RefreshTokenUserModel.exists({ refreshToken: refreshToken });
         if (!isRefreshTokenValid) {
-            return res.status(401).json('refreshToken is invalid');
+            return sendUnauthorizedResponse(res, 'Refresh token is invalid');
         }
 
         jwt.verify(refreshToken, process.env.JWT_REFRESH_KEY, (err, user) => {
             if (err) {
-                console.log(err);
+                return sendErrorResponse(res, 'Invalid refresh token');
             }
 
             // Hàm xóa refreshToken ở cơ sở dữ liệu
@@ -126,7 +143,7 @@ const userController = {
             // Hàm lưu refreshToken vào cơ sở dữ liệu
             async function saveRefreshTokenToDatabase(id, newRefreshToken) {
                 try {
-                    const refreshTokenDocument = await new RefreshTokenUserModel({
+                    const refreshTokenDocument = new RefreshTokenUserModel({
                         userId: id,
                         refreshToken: newRefreshToken,
                     });
@@ -136,8 +153,7 @@ const userController = {
                 }
             }
 
-            const idUser = user.id.toString();
-            saveRefreshTokenToDatabase(idUser, newRefreshToken);
+            saveRefreshTokenToDatabase(userIdslug, newRefreshToken);
 
             res.cookie('refreshToken', newRefreshToken, {
                 httpOnly: true,
@@ -145,10 +161,11 @@ const userController = {
                 path: '/',
                 sameSite: 'strict',
             });
-            res.status(200).json({
-                accessToken: newAccessToken,
-                refreshToken: newRefreshToken,
-            });
+            sendSuccessResponse(
+                res,
+                { accessToken: newAccessToken, refreshToken: newRefreshToken },
+                'Token refreshed successfully',
+            );
         });
     },
 
@@ -159,9 +176,9 @@ const userController = {
             // Xóa mã thông báo làm mới khỏi cơ sở dữ liệu và xóa cookie
             await RefreshTokenUserModel.deleteOne({ refreshToken: refreshToken });
             res.clearCookie('refreshToken');
-            res.status(200).json('Logout successful');
+            sendSuccessResponse(res, null, 'Logout successful');
         } catch (error) {
-            res.status(500).json(error);
+            sendErrorResponse(res, 'Error logging out');
         }
     },
 };
