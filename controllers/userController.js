@@ -53,7 +53,7 @@ const userController = {
             },
             process.env.JWT_ACCESS_KEY,
             {
-                expiresIn: '15s',
+                expiresIn: '300s',
             },
         );
     },

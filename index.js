@@ -21,7 +21,7 @@
 // // app.use(cors({ origin: true, credentials: true }));
 // app.use(
 //     cors({
-//         origin: 'https://oragnive-ui.vercel.app',
+//         origin: 'http://localhost:5173',
 //         credentials: true,
 //         exposedHeaders: ['Set-Cookie', 'Date', 'ETag'],
 //     }),
