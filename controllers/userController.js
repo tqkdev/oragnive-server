@@ -97,9 +97,9 @@ const userController = {
                 // STORE REFRESH TOKEN IN COOKIE
                 res.cookie('refreshToken', refreshToken, {
                     httpOnly: true,
-                    secure: false,
+                    secure: true,
                     path: '/',
-                    sameSite: 'strict',
+                    sameSite: 'none',
                 });
                 const { password, ...others } = user._doc;
                 return sendSuccessResponse(res, { ...others, accessToken }, 'Login successful');
@@ -157,9 +157,9 @@ const userController = {
 
             res.cookie('refreshToken', newRefreshToken, {
                 httpOnly: true,
-                secure: false,
+                secure: true,
                 path: '/',
-                sameSite: 'strict',
+                sameSite: 'none',
             });
             sendSuccessResponse(
                 res,

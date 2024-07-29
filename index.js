@@ -19,7 +19,13 @@ dotenv.config();
 const app = express();
 app.use(bodyParser.json({ limit: '50mb' }));
 // app.use(cors({ origin: true, credentials: true }));
-app.use(cors({ origin: 'http://localhost:5173', credentials: true, exposedHeaders: ['Set-Cookie', 'Date', 'ETag'] }));
+app.use(
+    cors({
+        origin: 'https://oragnive-ui.vercel.app',
+        credentials: true,
+        exposedHeaders: ['Set-Cookie', 'Date', 'ETag'],
+    }),
+);
 app.use(morgan('common'));
 app.use(cookiparser());
 
@@ -60,6 +66,10 @@ app.use('/api/search', searchRoute);
 app.use('/api/user', userRoute);
 app.use('/api/admin', adminRoute);
 app.use('/api/order', orderRoute);
+
+app.get('/', (req, res) => {
+    res.send('Server is running....');
+});
 
 app.listen(port, () => {
     console.log(`Server is running....`);
