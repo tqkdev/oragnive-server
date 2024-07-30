@@ -1,3 +1,6 @@
+#  Express.js 
+
+## Giới Thiệu
 oragnive-server là backend của ứng dụng thương mại điện tử được xây dựng bằng Express.js và MongoDB. Nó cung cấp các API cho frontend để thực hiện các chức năng như xác thực người dùng, quản lý sản phẩm, và đặt hàng.
 ## Tính Năng
 - Xác thực và phân quyền người dùng
