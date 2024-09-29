@@ -13,7 +13,7 @@ router.get('/:slug', middlewareUserController.verifyToken, orderController.getOr
 router.put('/:slug', middlewareUserController.verifyToken, orderController.updateOrder);
 
 // UPDATE quality product in order
-router.put('/quality/:slug', middlewareUserController.verifyToken, orderController.updatequality);
+router.put('/quality/:slug', middlewareUserController.verifyToken, orderController.updatequantity);
 
 //DELETE product in Order
 router.put('/delete/:slug', middlewareUserController.verifyToken, orderController.deleteOrder);

@@ -21,10 +21,10 @@ const orderSchema = new mongoose.Schema({
             product_price: {
                 type: Number,
             },
-            product_slug: {
+            product_category: {
                 type: String,
             },
-            quality: {
+            quantity: {
                 type: Number,
             },
         },

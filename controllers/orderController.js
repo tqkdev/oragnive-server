@@ -41,27 +41,27 @@ const OrderController = {
             sendErrorResponse(res, error.message);
         }
     },
-    // UPDATE QUALITY
-    updatequality: async (req, res) => {
+    // UPDATE quantity
+    updatequantity: async (req, res) => {
         try {
             const updateOrder = await Order.findOne({ user_id: req.params.slug });
             if (!updateOrder) {
                 return sendNotFoundResponse(res, 'Order not found');
             }
-            const quality = req.body.quality;
+            const quantity = req.body.quantity;
             // Tìm sản phẩm cần cập nhật trong đơn hàng
             const productToUpdate = updateOrder.order.find((orderItem) => orderItem.product_id === req.body.product_id);
             if (!productToUpdate) {
                 return sendNotFoundResponse(res, 'Product not found in order');
             }
 
-            // Cập nhật trường quality
-            productToUpdate.quality = quality;
+            // Cập nhật trường quantity
+            productToUpdate.quantity = quantity;
 
             await updateOrder.save();
-            sendSuccessResponse(res, updateOrder, 'Order quality updated successfully');
+            sendSuccessResponse(res, updateOrder, 'Order quantity updated successfully');
         } catch (error) {
-            sendErrorResponse(res, 'Error updating order quality');
+            sendErrorResponse(res, 'Error updating order quantity');
         }
     },
 

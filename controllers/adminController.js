@@ -47,7 +47,7 @@ const adminController = {
                 id: admin.id,
             },
             process.env.JWT_ACCESS_KEY,
-            { expiresIn: '300s' },
+            { expiresIn: '3000s' },
         );
     },
 
@@ -70,6 +70,7 @@ const adminController = {
                 return sendNotFoundResponse(res, 'Incorrect email');
             }
             const validPassword = await bcrypt.compare(req.body.password, admin.password);
+
             if (!validPassword) {
                 return sendValidationErrorResponse(res, [], 'Incorrect password');
             }
@@ -92,6 +93,13 @@ const adminController = {
                     path: '/',
                     sameSite: 'none',
                 });
+
+                // res.cookie('refreshToken', refreshToken, {
+                //     httpOnly: true,
+                //     secure: false,
+                //     path: '/',
+                //     sameSite: 'strict',
+                // });
                 const { password, ...others } = admin._doc;
                 return sendSuccessResponse(res, { ...others, accessToken }, 'Login successful');
             }
@@ -150,6 +158,12 @@ const adminController = {
                 path: '/',
                 sameSite: 'none',
             });
+            // res.cookie('refreshToken', refreshToken, {
+            //     httpOnly: true,
+            //     secure: false,
+            //     path: '/',
+            //     sameSite: 'strict',
+            // });
             sendSuccessResponse(
                 res,
                 { accessToken: newAccessToken, refreshToken: newRefreshToken },

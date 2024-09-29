@@ -89,6 +89,7 @@ const searchRoute = require('./routes/search');
 const userRoute = require('./routes/user');
 const adminRoute = require('./routes/admin');
 const orderRoute = require('./routes/order');
+const placedOrderRoute = require('./routes/placedOrder');
 
 dotenv.config();
 const app = express();
@@ -124,6 +125,7 @@ app.use('/api/search', searchRoute);
 app.use('/api/user', userRoute);
 app.use('/api/admin', adminRoute);
 app.use('/api/order', orderRoute);
+app.use('/api/placedOrder', placedOrderRoute);
 
 const port = process.env.PORT || 3001;
 
